@@ -1,0 +1,134 @@
+version: '3.8'
+
+services:
+  # CouchDB Node 1 (Primary)
+  couchdb-node1:
+    image: couchdb:3.3
+    container_name: couchdb-node1
+    environment:
+      - COUCHDB_USER=admin
+      - COUCHDB_PASSWORD=password
+      - COUCHDB_SECRET=0123456789abcdef
+      - NODENAME=couchdb-node1.local
+    ports:
+      - "5984:5984"
+      - "4369:4369"
+      - "9100:9100"
+    volumes:
+      - couchdb-node1-data:/opt/couchdb/data
+      - ./config/couchdb/local.ini:/opt/couchdb/etc/local.d/local.ini
+    networks:
+      - couchdb-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5984/_up"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # CouchDB Node 2 (Replica)
+  couchdb-node2:
+    image: couchdb:3.3
+    container_name: couchdb-node2
+    environment:
+      - COUCHDB_USER=admin
+      - COUCHDB_PASSWORD=password
+      - COUCHDB_SECRET=0123456789abcdef
+      - NODENAME=couchdb-node2.local
+    ports:
+      - "5985:5984"
+      - "4370:4369"
+      - "9101:9100"
+    volumes:
+      - couchdb-node2-data:/opt/couchdb/data
+      - ./config/couchdb/local.ini:/opt/couchdb/etc/local.d/local.ini
+    networks:
+      - couchdb-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5984/_up"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # CouchDB Node 3 (Replica)
+  couchdb-node3:
+    image: couchdb:3.3
+    container_name: couchdb-node3
+    environment:
+      - COUCHDB_USER=admin
+      - COUCHDB_PASSWORD=password
+      - COUCHDB_SECRET=0123456789abcdef
+      - NODENAME=couchdb-node3.local
+    ports:
+      - "5986:5984"
+      - "4371:4369"
+      - "9102:9100"
+    volumes:
+      - couchdb-node3-data:/opt/couchdb/data
+      - ./config/couchdb/local.ini:/opt/couchdb/etc/local.d/local.ini
+    networks:
+      - couchdb-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5984/_up"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Redis for caching and task queue
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - couchdb-network
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Prometheus for metrics
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - couchdb-network
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./config/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./config/grafana/datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - couchdb-network
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+
+volumes:
+  couchdb-node1-data:
+  couchdb-node2-data:
+  couchdb-node3-data:
+  redis-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  couchdb-network:
+    driver: bridge
