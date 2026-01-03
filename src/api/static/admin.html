@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Distributed Agent Platform - Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/dist/vis-network.min.css" rel="stylesheet">
+    <style>
+        .node-card {
+            transition: all 0.3s ease;
+        }
+        .node-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        #network {
+            height: 500px;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+        }
+        .status-dot {
+            height: 12px;
+            width: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .status-healthy { background-color: #10b981; }
+        .status-error { background-color: #ef4444; }
+        .pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">🤖 Distributed Agent Platform</h1>
+                    <p class="text-sm text-gray-500">Admin Control Center</p>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="text-sm">
+                        <span class="text-gray-500">Last Updated:</span>
+                        <span id="last-update" class="font-medium text-gray-900">--</span>
+                    </div>
+                    <button onclick="refreshData()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+                        🔄 Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- Stats Overview -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 bg-blue-100 rounded-md p-3">
+                        <svg class="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Total Documents</dt>
+                            <dd class="text-2xl font-semibold text-gray-900" id="total-docs">0</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 bg-green-100 rounded-md p-3">
+                        <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Active Agents</dt>
+                            <dd class="text-2xl font-semibold text-gray-900" id="active-agents">0</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 bg-yellow-100 rounded-md p-3">
+                        <svg class="h-6 w-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Pending Tasks</dt>
+                            <dd class="text-2xl font-semibold text-gray-900" id="pending-tasks">0</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 bg-purple-100 rounded-md p-3">
+                        <svg class="h-6 w-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Replications</dt>
+                            <dd class="text-2xl font-semibold text-gray-900" id="active-replications">0</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Network Visualization & Node Status -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+            <!-- Network Topology -->
+            <div class="lg:col-span-2 bg-white rounded-lg shadow p-6">
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">🌐 Network Topology</h2>
+                <div id="network"></div>
+            </div>
+
+            <!-- Node Status -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">📡 Node Status</h2>
+                <div id="node-status" class="space-y-3">
+                    <!-- Populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Node Details & Data Distribution -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div id="nodes-container" class="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Control Panels -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+            <!-- Replication Control -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">🔄 Replication Control</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Source Node</label>
+                        <select id="repl-source" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                            <option value="http://localhost:5984">Node 1 (5984)</option>
+                            <option value="http://localhost:5985">Node 2 (5985)</option>
+                            <option value="http://localhost:5986">Node 3 (5986)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Target Node</label>
+                        <select id="repl-target" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                            <option value="http://localhost:5985">Node 2 (5985)</option>
+                            <option value="http://localhost:5986">Node 3 (5986)</option>
+                            <option value="http://localhost:5984">Node 1 (5984)</option>
+                        </select>
+                    </div>
+                    <div class="flex space-x-4">
+                        <button onclick="enableReplication()" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition">
+                            ✅ Enable
+                        </button>
+                        <button onclick="disableReplication()" class="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition">
+                            ❌ Disable
+                        </button>
+                    </div>
+                    <div id="repl-status" class="mt-4 p-3 rounded-lg hidden"></div>
+                </div>
+            </div>
+
+            <!-- Data Generation -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">🎲 Data Generation</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">OpenRouter API Key (Optional)</label>
+                        <input type="password" id="openrouter-key" placeholder="sk-or-v1-..." class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Agents</label>
+                            <input type="number" id="gen-agents" value="10" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Tasks</label>
+                            <input type="number" id="gen-tasks" value="30" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Knowledge</label>
+                            <input type="number" id="gen-knowledge" value="15" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">States</label>
+                            <input type="number" id="gen-states" value="20" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                        </div>
+                    </div>
+                    <button onclick="generateData()" class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-medium transition">
+                        🚀 Generate Now
+                    </button>
+                    <div id="gen-status" class="mt-4 p-3 rounded-lg hidden"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Auto-Generation Settings -->
+        <div class="mt-8 bg-white rounded-lg shadow p-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">⏰ Automatic Data Generation</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="md:col-span-2 space-y-4">
+                    <div class="flex items-center">
+                        <input type="checkbox" id="auto-gen-enabled" class="h-4 w-4 text-blue-600 rounded">
+                        <label for="auto-gen-enabled" class="ml-2 block text-sm text-gray-900">
+                            Enable automatic data generation
+                        </label>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Generation Interval (minutes)</label>
+                        <input type="number" id="auto-gen-interval" value="5" min="3" max="10" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                        <p class="mt-1 text-xs text-gray-500">Generate new data every 3-10 minutes</p>
+                    </div>
+                    <button onclick="saveAutoGeneration()" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg font-medium transition">
+                        💾 Save Settings
+                    </button>
+                </div>
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <h3 class="text-sm font-medium text-gray-900 mb-2">Status</h3>
+                    <div id="auto-gen-status" class="space-y-2 text-sm text-gray-600">
+                        <p><span class="font-medium">Enabled:</span> <span id="auto-status">No</span></p>
+                        <p><span class="font-medium">Interval:</span> <span id="auto-interval">5</span> min</p>
+                        <p><span class="font-medium">Last Run:</span> <span id="auto-last">Never</span></p>
+                        <p><span class="font-medium">Next Run:</span> <span id="auto-next">--</span></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Links -->
+        <div class="mt-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg shadow-lg p-6 text-white">
+            <h2 class="text-lg font-semibold mb-4">🔗 Quick Access</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <a href="http://localhost:5984/_utils" target="_blank" class="bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-4 text-center transition">
+                    <div class="text-2xl mb-2">📊</div>
+                    <div class="text-sm font-medium">CouchDB Admin</div>
+                </a>
+                <a href="http://localhost:3000" target="_blank" class="bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-4 text-center transition">
+                    <div class="text-2xl mb-2">📈</div>
+                    <div class="text-sm font-medium">Grafana</div>
+                </a>
+                <a href="http://localhost:9090" target="_blank" class="bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-4 text-center transition">
+                    <div class="text-2xl mb-2">🎯</div>
+                    <div class="text-sm font-medium">Prometheus</div>
+                </a>
+                <a href="/metrics" target="_blank" class="bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-4 text-center transition">
+                    <div class="text-2xl mb-2">📊</div>
+                    <div class="text-sm font-medium">Metrics</div>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '';
+        let network = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeNetworkGraph();
+            refreshData();
+            loadAutoGenStatus();
+            setInterval(refreshData, 10000); // Refresh every 10 seconds
+        });
+
+        async function refreshData() {
+            try {
+                await Promise.all([
+                    loadNodes(),
+                    loadStats(),
+                    loadReplications()
+                ]);
+                document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+            } catch (error) {
+                console.error('Error refreshing data:', error);
+            }
+        }
+
+        async function loadNodes() {
+            const response = await fetch(`${API_BASE}/api/nodes`);
+            const nodes = await response.json();
+
+            const container = document.getElementById('nodes-container');
+            const statusContainer = document.getElementById('node-status');
+
+            container.innerHTML = nodes.map((node, idx) => `
+                <div class="node-card bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-900">Node ${idx + 1}</h3>
+                        <span class="status-dot status-${node.status} ${node.status === 'healthy' ? 'pulse' : ''}"></span>
+                    </div>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">Documents:</span>
+                            <span class="font-medium">${node.document_count}</span>
+                        </div>
+                        <div class="border-t pt-2 mt-2">
+                            ${Object.entries(node.documents_by_type).map(([type, count]) => `
+                                <div class="flex justify-between text-xs mb-1">
+                                    <span class="text-gray-600">${type}:</span>
+                                    <span class="font-medium">${count}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            statusContainer.innerHTML = nodes.map((node, idx) => `
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div class="flex items-center">
+                        <span class="status-dot status-${node.status}"></span>
+                        <span class="text-sm font-medium">Node ${idx + 1}</span>
+                    </div>
+                    <span class="text-xs text-gray-500">${node.document_count} docs</span>
+                </div>
+            `).join('');
+
+            updateNetworkGraph(nodes);
+        }
+
+        async function loadStats() {
+            const response = await fetch(`${API_BASE}/api/stats`);
+            const stats = await response.json();
+
+            document.getElementById('total-docs').textContent = stats.total_documents;
+            document.getElementById('active-agents').textContent = stats.agents.active;
+            document.getElementById('pending-tasks').textContent = stats.tasks.pending;
+        }
+
+        async function loadReplications() {
+            const response = await fetch(`${API_BASE}/api/replications`);
+            const replications = await response.json();
+
+            const activeCount = replications.filter(r => r.status === 'active').length;
+            document.getElementById('active-replications').textContent = activeCount;
+        }
+
+        function initializeNetworkGraph() {
+            const container = document.getElementById('network');
+            const data = {
+                nodes: new vis.DataSet([
+                    { id: 1, label: 'Node 1\n:5984', color: '#3b82f6', shape: 'box' },
+                    { id: 2, label: 'Node 2\n:5985', color: '#10b981', shape: 'box' },
+                    { id: 3, label: 'Node 3\n:5986', color: '#8b5cf6', shape: 'box' }
+                ]),
+                edges: new vis.DataSet([])
+            };
+
+            const options = {
+                nodes: {
+                    font: { color: '#ffffff', size: 14 },
+                    borderWidth: 2,
+                    size: 30
+                },
+                edges: {
+                    arrows: 'to',
+                    color: { color: '#94a3b8', highlight: '#3b82f6' },
+                    width: 2
+                },
+                physics: {
+                    enabled: true,
+                    barnesHut: { gravitationalConstant: -2000, springConstant: 0.001, springLength: 200 }
+                }
+            };
+
+            network = new vis.Network(container, data, options);
+        }
+
+        function updateNetworkGraph(nodes) {
+            // Update based on replication status
+            // This would be enhanced with actual replication data
+        }
+
+        async function enableReplication() {
+            const source = document.getElementById('repl-source').value;
+            const target = document.getElementById('repl-target').value;
+
+            try {
+                const response = await fetch(`${API_BASE}/api/replication/control`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ source_node: source, target_node: target, enable: true })
+                });
+
+                const result = await response.json();
+                showStatus('repl-status', 'Replication enabled successfully!', 'success');
+                await refreshData();
+            } catch (error) {
+                showStatus('repl-status', 'Error enabling replication: ' + error.message, 'error');
+            }
+        }
+
+        async function disableReplication() {
+            const source = document.getElementById('repl-source').value;
+            const target = document.getElementById('repl-target').value;
+
+            try {
+                const response = await fetch(`${API_BASE}/api/replication/control`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ source_node: source, target_node: target, enable: false })
+                });
+
+                const result = await response.json();
+                showStatus('repl-status', 'Replication disabled successfully!', 'success');
+                await refreshData();
+            } catch (error) {
+                showStatus('repl-status', 'Error disabling replication: ' + error.message, 'error');
+            }
+        }
+
+        async function generateData() {
+            const apiKey = document.getElementById('openrouter-key').value;
+            const agents = parseInt(document.getElementById('gen-agents').value);
+            const tasks = parseInt(document.getElementById('gen-tasks').value);
+            const knowledge = parseInt(document.getElementById('gen-knowledge').value);
+            const states = parseInt(document.getElementById('gen-states').value);
+
+            try {
+                const response = await fetch(`${API_BASE}/api/data/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        openrouter_key: apiKey || null,
+                        agents, tasks, knowledge, states, decisions: 5
+                    })
+                });
+
+                const result = await response.json();
+                showStatus('gen-status', 'Data generation started! Check back in a few moments.', 'success');
+
+                // Refresh after a delay
+                setTimeout(refreshData, 5000);
+            } catch (error) {
+                showStatus('gen-status', 'Error: ' + error.message, 'error');
+            }
+        }
+
+        async function saveAutoGeneration() {
+            const enabled = document.getElementById('auto-gen-enabled').checked;
+            const interval = parseInt(document.getElementById('auto-gen-interval').value);
+            const apiKey = document.getElementById('openrouter-key').value;
+
+            try {
+                const response = await fetch(`${API_BASE}/api/data/auto-generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        enabled,
+                        interval_minutes: interval,
+                        openrouter_key: apiKey || null
+                    })
+                });
+
+                const result = await response.json();
+                showStatus('gen-status', 'Auto-generation settings saved!', 'success');
+                await loadAutoGenStatus();
+            } catch (error) {
+                showStatus('gen-status', 'Error: ' + error.message, 'error');
+            }
+        }
+
+        async function loadAutoGenStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/api/data/auto-generate/status`);
+                const status = await response.json();
+
+                document.getElementById('auto-status').textContent = status.enabled ? 'Yes' : 'No';
+                document.getElementById('auto-interval').textContent = status.interval_minutes;
+                document.getElementById('auto-last').textContent = status.last_generation ?
+                    new Date(status.last_generation).toLocaleString() : 'Never';
+                document.getElementById('auto-next').textContent = status.next_generation ?
+                    new Date(status.next_generation).toLocaleString() : '--';
+            } catch (error) {
+                console.error('Error loading auto-gen status:', error);
+            }
+        }
+
+        function showStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.className = `mt-4 p-3 rounded-lg ${type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`;
+            element.textContent = message;
+            element.classList.remove('hidden');
+
+            setTimeout(() => {
+                element.classList.add('hidden');
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

@@ -207,10 +207,22 @@ class CouchDBClient:
         **params
     ) -> Dict[str, Any]:
         """Query a view."""
+        import json as json_lib
+
         db_name = db_name or self.database
         url = f"{self.url}/{db_name}/_design/{design_doc}/_view/{view_name}"
-        
-        async with self.session.get(url, params=params) as response:
+
+        # Convert list/dict/bool parameters to appropriate strings for CouchDB
+        processed_params = {}
+        for key, value in params.items():
+            if isinstance(value, (list, dict)):
+                processed_params[key] = json_lib.dumps(value)
+            elif isinstance(value, bool):
+                processed_params[key] = "true" if value else "false"
+            else:
+                processed_params[key] = value
+
+        async with self.session.get(url, params=processed_params) as response:
             if response.status == 200:
                 return await response.json()
             else:

@@ -36,17 +36,33 @@ class TaskStatus(str, Enum):
 
 class BaseDocument(BaseModel):
     """Base model for all CouchDB documents."""
+    model_config = {"populate_by_name": True}
+
     id: Optional[str] = Field(None, alias="_id")
     rev: Optional[str] = Field(None, alias="_rev")
     type: DocumentType
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-    
-    class Config:
-        populate_by_name = True
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
+
+    def model_dump(self, **kwargs):
+        """Override to serialize datetime objects and exclude None values."""
+        # Exclude None by default
+        if 'exclude_none' not in kwargs:
+            kwargs['exclude_none'] = True
+
+        data = super().model_dump(**kwargs)
+
+        # Convert datetime objects to ISO strings recursively
+        def convert_datetimes(obj):
+            if isinstance(obj, datetime):
+                return obj.isoformat()
+            elif isinstance(obj, dict):
+                return {k: convert_datetimes(v) for k, v in obj.items() if v is not None}
+            elif isinstance(obj, list):
+                return [convert_datetimes(item) for item in obj]
+            return obj
+
+        return convert_datetimes(data)
 
 
 class AgentMetadata(BaseModel):
